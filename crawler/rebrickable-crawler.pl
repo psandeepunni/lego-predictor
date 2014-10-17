@@ -15,7 +15,7 @@ my $total_page_count = 1;
 print $fh "lego_set_id,lego_set_title,rebrickable_lego_set_url,bricket_lego_set_url,brickpicker_lego_set_url\n";
 
 for (my $i = 1; $i <= $total_page_count; $i++) {
-  print "page no : ".$i."\n";
+  print "page : ".$i."\n";
   my $url = "http://rebrickable.com/search?q=sets&theme=0&numpieces=0&maxpieces=1050&year=1950&yearto=".$current_year."&official=1&pt=0&c=-1&sets=&v=3&p=".$i;
   my $webpage = get($url) or die 'Unable to get page';
   $tree->parse($webpage);
@@ -27,8 +27,11 @@ for (my $i = 1; $i <= $total_page_count; $i++) {
 
   foreach (@anchor_nodes) {
     if ($_->attr('href') =~ /^\/sets\/(.+?)\/(.+?)$/) {
-      my @record = ();
-      print $fh $1.",".$2.",http://rebrickable.com".$_->attr('href').",http://brickset.com/sets/".$1.",http://www.brickpicker.com/bpms/set.cfm?set=".$1."\n";
+        my $rebrickable_lego_set_url_path = $_->attr('href');
+        my $lego_set_id = $1;
+        my $lego_set_title = $2;
+        $lego_set_id =~ s/^([^-]+?-[^-]+?)-[^-]+?$/$1/;
+        print $fh $lego_set_id.",".$lego_set_title.",http://rebrickable.com".$rebrickable_lego_set_url_path.",http://brickset.com/sets/".$lego_set_id.",http://www.brickpicker.com/bpms/set.cfm?set=".$lego_set_id."\n";
     }
   }
 
