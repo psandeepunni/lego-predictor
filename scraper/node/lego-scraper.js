@@ -16,7 +16,6 @@ var rd = readline.createInterface({
 });
 
 function writeToCSV(line) {
-	console.log(line);
 	wstream.write(line+'\n');
 }
 
@@ -76,7 +75,7 @@ var queue = async.queue(function (task, callback) {
 }, 1);
 
 queue.drain = function() {
-    console.log('all items have been processed');
+    console.log('all items have been scraped and written to csv');
 	wstream.end();
 	process.exit(0);
 }
@@ -125,8 +124,13 @@ function scrapeBrickSetPage(url,callback) {
 		scrapeResult["year"] = releaseYear;
 		scrapeResult["partCount"] = partCount;
 		scrapeResult["minifigCount"] = minifigCount;
-		scrapeResult["USRP"] = retailprice[1].replace("US$","");
-		scrapeResult["UKRP"] =  retailprice[0].replace("£","");
+		if (retailprice.length === 2) {
+			scrapeResult["USRP"] = retailprice[1].replace("US$","");
+			scrapeResult["UKRP"] =  retailprice[0].replace("£","");
+		} else {
+			scrapeResult["USRP"] = -1;
+			scrapeResult["UKRP"] =  -1;
+		}
 		scrapeResult["availability"] = availability;
 		callback(null,scrapeResult);
 	});
@@ -140,7 +144,9 @@ function scrapeBrickPickerPage(url, callback) {
 		var currentUKRP = $('#contentwrapper > div.widgetbox.padding0.nomargin > div > table > tbody > tr:nth-child(2) > td:nth-child(2)').text().trim().replace("£ ","");
 		var usPriceMatches = priceRegex.exec(currentUSRP);
 		var ukPriceMatches = priceRegex.exec(currentUKRP);
-		callback(null,{"currentUSRP" : usPriceMatches[1], "currentUKRP" : ukPriceMatches[1]});
+		var usPrice = (usPriceMatches)?usPriceMatches[1]:-1;
+		var ukPrice = (ukPriceMatches)?ukPriceMatches[1]:-1;
+		callback(null,{"currentUSRP" : usPrice, "currentUKRP" : ukPrice});
 	});
 }
 
@@ -154,7 +160,6 @@ rd.on('line', function(line) {
 		var legoSetBrickpickerUrl = record[4];
 		queue.push({"setId" : legoSetId,"rebrickableUrl" : legoSetRebrickableUrl,"bricksetUrl" : legoSetBricksetUrl, "brickpickerUrl" : legoSetBrickpickerUrl});
 	} else {
-		console.log("discard line 0");
 		writeToCSV('setid,name,type,themeGroup,theme,subtheme,year,partCount,minifigCount,USRP,UKRP,availability,currentUSRP,currentUKRP,uniqueParts');
 	}
 	lineNo++;
