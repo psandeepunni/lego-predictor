@@ -1,0 +1,21 @@
+{
+  "name": "lego-scraper",
+  "private": false,
+  "version": "1.0.0",
+  "description": "Web scraper to get details of lego sets",
+  "dependencies": {
+    "async": "0.9.0",
+    "cheerio": "0.17.0",
+    "phantom": "^0.6.6",
+    "phantomjs": "1.9.11",
+    "request": "2.45.0"
+  },
+  "scripts": {
+    "start": "node lego-scraper.js",
+    "debug": "node debug lego-scraper.js"
+  },
+  "main": "lego-scraper.js",
+  "repository": "",
+  "author": "Sandeep Unni",
+  "license": ""
+}
