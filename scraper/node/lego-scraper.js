@@ -5,8 +5,10 @@ var fs = require('fs'),
   	request = require('request'),
   	cheerio = require('cheerio'),
   	phantom = require('phantom'),
-  	uniquePartsRegex = /^There\sare\sa\stotal\sof\s(\d{1,})\sparts,\swith\s(\d{1,})\sunique\sparts\/colors/i;
-	priceRegex = /^(\d{1,}\.\d{1,})/i;
+  	uniquePartsRegex = /^There\sare\sa\stotal\sof\s(\d{1,})\sparts,\swith\s(\d{1,})\sunique\sparts\/colors/i,
+	priceRegex = /^(\d{1,}\.\d{1,})/i,
+	metricRegex = /Standard:\s(\d{1,}\.\d{1,})\sx\s(\d{1,}\.\d{1,})\sx\s(\d{1,}\.\d{1,})/i,
+	weightRegex = /Weight:\s(\d{1,}\.\d{1,})\slbs\s\/\s(\d{1,}\.\d{1,})\skg/i;
 
 // fs.createReadStream('../../crawler/lego_set_urls.csv')
 var rd = readline.createInterface({
@@ -47,7 +49,8 @@ var queue = async.queue(function (task, callback) {
     				rebrickableCallback(null,result);
     			}
     		});
-    	}],
+    	}
+	],
   function(err,results){
 
 		if (err) {
@@ -67,6 +70,10 @@ var queue = async.queue(function (task, callback) {
 			str = str + results[0]['availability']+',';
 			str = str + results[1]['currentUSRP']+',';
 			str = str + results[1]['currentUKRP']+',';
+			str = str + results[1]['length']+',';
+			str = str + results[1]['width']+',';
+			str = str + results[1]['height']+',';
+			str = str + results[1]['weight']+',';
 			str = str + results[2]['uniqueParts'];
 			writeToCSV(str);
 			callback();
@@ -124,7 +131,7 @@ function scrapeBrickSetPage(url,callback) {
 		scrapeResult["year"] = releaseYear;
 		scrapeResult["partCount"] = partCount;
 		scrapeResult["minifigCount"] = minifigCount;
-		if (retailprice.length === 2) {
+		if (retailprice.length === 3) {
 			scrapeResult["USRP"] = retailprice[1].replace("US$","");
 			scrapeResult["UKRP"] =  retailprice[0].replace("£","");
 		} else {
@@ -146,7 +153,22 @@ function scrapeBrickPickerPage(url, callback) {
 		var ukPriceMatches = priceRegex.exec(currentUKRP);
 		var usPrice = (usPriceMatches)?usPriceMatches[1]:-1;
 		var ukPrice = (ukPriceMatches)?ukPriceMatches[1]:-1;
-		callback(null,{"currentUSRP" : usPrice, "currentUKRP" : ukPrice});
+		var size = $('#contentwrapper > div:nth-child(1) > div:nth-child(2) > div > div > ul > li.ruler > div').text().trim().replace("\r\n\t","");
+		var metricMatches = metricRegex.exec(size);
+		var weightMatches = weightRegex.exec(size);
+		var length = -1;
+		var width = -1;
+		var height = -1;
+		var weight = -1;
+		if (metricMatches.length === 4) {
+			length = metricMatches[1];
+			width = metricMatches[2];
+			height = metricMatches[3];
+		}
+		if (weightMatches.length === 3) {
+			weight = weightMatches[2];
+		}
+		callback(null,{"currentUSRP" : usPrice, "currentUKRP" : ukPrice, "length" : length, "width" : width, "height" : height, "weight" : weight});
 	});
 }
 
@@ -160,7 +182,7 @@ rd.on('line', function(line) {
 		var legoSetBrickpickerUrl = record[4];
 		queue.push({"setId" : legoSetId,"rebrickableUrl" : legoSetRebrickableUrl,"bricksetUrl" : legoSetBricksetUrl, "brickpickerUrl" : legoSetBrickpickerUrl});
 	} else {
-		writeToCSV('setid,name,type,themeGroup,theme,subtheme,year,partCount,minifigCount,USRP,UKRP,availability,currentUSRP,currentUKRP,uniqueParts');
+		writeToCSV('setid,name,type,themeGroup,theme,subtheme,year,partCount,minifigCount,USRP,UKRP,availability,currentUSRP,currentUKRP,length,width,height,weight,uniqueParts');
 	}
 	lineNo++;
 });
