@@ -9,10 +9,9 @@ var fs = require('fs'),
 	priceRegex = /^(\d{1,}\.\d{1,})/i,
 	metricRegex = /Standard:\s(\d{1,}\.\d{1,})\sx\s(\d{1,}\.\d{1,})\sx\s(\d{1,}\.\d{1,})/i,
 	weightRegex = /Weight:\s(\d{1,}\.\d{1,})\slbs\s\/\s(\d{1,}\.\d{1,})\skg/i;
-
-// fs.createReadStream('../../crawler/lego_set_urls.csv')
+	
 var rd = readline.createInterface({
-    input: fs.createReadStream('./lego-url.csv'),
+    input: fs.createReadStream('./URL.csv'),
     output: process.stdout,
     terminal: false
 });
@@ -160,12 +159,12 @@ function scrapeBrickPickerPage(url, callback) {
 		var width = -1;
 		var height = -1;
 		var weight = -1;
-		if (metricMatches.length === 4) {
+		if (metricMatches && metricMatches.length === 4) {
 			length = metricMatches[1];
 			width = metricMatches[2];
 			height = metricMatches[3];
 		}
-		if (weightMatches.length === 3) {
+		if (weightMatches && weightMatches.length === 3) {
 			weight = weightMatches[2];
 		}
 		callback(null,{"currentUSRP" : usPrice, "currentUKRP" : ukPrice, "length" : length, "width" : width, "height" : height, "weight" : weight});
