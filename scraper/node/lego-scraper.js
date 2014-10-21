@@ -96,7 +96,10 @@ function scrapeRebrickablePage(url,callback) {
 				var $ = cheerio.load(result);
 				var partsInfo = $('#set_inv_list > p:nth-child(4)').text();
 				var matches = uniquePartsRegex.exec(partsInfo);
-				var uniqueParts = parseInt(matches[2],10);
+				var uniqueParts = -1;
+				if (matches && matches.length === 3) {
+					uniqueParts = parseInt(matches[2],10);
+				}
 				callback(null,{"uniqueParts" : uniqueParts});
 				ph.exit();
 			});
