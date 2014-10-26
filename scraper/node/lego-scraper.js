@@ -1,14 +1,15 @@
 var fs = require('fs'),
-	wstream = fs.createWriteStream('./lego-data-set.csv');
+	wstream = fs.createWriteStream('./lego-set-details.csv');
     readline = require('readline'),
   	async = require('async'),
   	request = require('request'),
   	cheerio = require('cheerio'),
   	phantom = require('phantom'),
   	uniquePartsRegex = /^There\sare\sa\stotal\sof\s(\d{1,})\sparts,\swith\s(\d{1,})\sunique\sparts\/colors/i,
-	priceRegex = /^(\d{1,}\.\d{1,})/i,
-	metricRegex = /Standard:\s(\d{1,}\.\d{1,})\sx\s(\d{1,}\.\d{1,})\sx\s(\d{1,}\.\d{1,})/i,
-	weightRegex = /Weight:\s(\d{1,}\.\d{1,})\slbs\s\/\s(\d{1,}\.\d{1,})\skg/i;
+	priceRegex = /(\d{1,}\.\d{1,})/i,
+	metricRegex = /Standard:\s*(\d{1,}\.\d{1,})\s*x\s*(\d{1,}\.\d{1,})\s*x\s*(\d{1,}\.\d{1,})/i,
+	weightRegex = /Weight:\s*(\d{1,}\.\d{1,})\s*lbs\s*\/\s*(\d{1,}\.\d{1,})\s*kg/i,
+	brickSetPriceRegex = /US\s*\$\s*(\d{1,}\.*\d{0,})/i;
 	
 var rd = readline.createInterface({
     input: fs.createReadStream('./URL.csv'),
@@ -17,6 +18,7 @@ var rd = readline.createInterface({
 });
 
 function writeToCSV(line) {
+	line= line.replace(/undefined/g, '-1');
 	wstream.write(line+'\n');
 }
 
@@ -39,7 +41,7 @@ var queue = async.queue(function (task, callback) {
     	 			brickpickerCallback(null,result);
     	 		}
     	 	});
-    	},
+       },
       function(rebrickableCallback){
     		scrapeRebrickablePage(task.rebrickableUrl,function(err,result){
     			if (err) {
@@ -56,29 +58,28 @@ var queue = async.queue(function (task, callback) {
 			callback(err);
 		} else {
 			
-			var str = task.setId + ',' + results[0]['name']+',';
-			str = str + results[0]['type']+',';
-			str = str + results[0]['themeGroup']+',';
-			str = str + results[0]['theme']+',';
-			str = str + results[0]['subtheme']+',';
-			str = str + results[0]['year']+',';
-			str = str + results[0]['partCount']+',';
-			str = str + results[0]['minifigCount']+',';
-			str = str + results[0]['USRP']+',';
-			str = str + results[0]['UKRP']+',';
-			str = str + results[0]['availability']+',';
-			str = str + results[1]['currentUSRP']+',';
-			str = str + results[1]['currentUKRP']+',';
+			var str = task.setId + ',' + results[0]['Name']+',';
+			str = str + results[0]['Set type']+',';
+			str = str + results[0]['Theme group']+',';
+			str = str + results[0]['Theme']+',';
+			str = str + results[0]['Subtheme']+',';
+			str = str + results[0]['Year released']+',';
+			str = str + results[0]['Pieces']+',';
+			str = str + results[0]['Minifigs']+',';
+			str = str + results[0]['uniqueParts']+',';
+			str = str + results[0]['Age range']+',';
+			str = str + results[0]['Availability']+',';
 			str = str + results[1]['length']+',';
 			str = str + results[1]['width']+',';
 			str = str + results[1]['height']+',';
 			str = str + results[1]['weight']+',';
-			str = str + results[2]['uniqueParts'];
+			str = str + results[0]['USRP']+',';
+			str = str + results[1]['currentUSRP'];
 			writeToCSV(str);
 			callback();
 		}
 	});
-}, 1);
+}, 10);
 
 queue.drain = function() {
     console.log('all items have been scraped and written to csv');
@@ -95,6 +96,7 @@ function scrapeRebrickablePage(url,callback) {
 			page.evaluate(function () { return document.documentElement.innerHTML; }, function (result) {
 				var $ = cheerio.load(result);
 				var partsInfo = $('#set_inv_list > p:nth-child(4)').text();
+				console.log('unique parts = '+partsInfo);
 				var matches = uniquePartsRegex.exec(partsInfo);
 				var uniqueParts = -1;
 				if (matches && matches.length === 3) {
@@ -114,47 +116,32 @@ function scrapeBrickSetPage(url,callback) {
 	request(url, function (err, response, body) {
 		if (err) callback(err,null);
 		var $ = cheerio.load(body);
-		var setName = $('#body > div.outerwrap > div > aside > section:nth-child(2) > div > dl > dd:nth-child(4)').text();
-		var setType = $('#body > div.outerwrap > div > aside > section:nth-child(2) > div > dl > dd:nth-child(6)').text();
-		var themeGroup = $('#body > div.outerwrap > div > aside > section:nth-child(2) > div > dl > dd:nth-child(8)').text();
-		var theme = $('#body > div.outerwrap > div > aside > section:nth-child(2) > div > dl > dd:nth-child(10) > a').text();
-		var subtheme = $('#body > div.outerwrap > div > aside > section:nth-child(2) > div > dl > dd:nth-child(12) > a').text();
-		var releaseYear = $('#body > div.outerwrap > div > aside > section:nth-child(2) > div > dl > dd:nth-child(14) > a').text();
-		var partCount = $('#body > div.outerwrap > div > aside > section:nth-child(2) > div > dl > dd:nth-child(16) > a').text();
-		var minifigCount = $('#body > div.outerwrap > div > aside > section:nth-child(2) > div > dl > dd:nth-child(18) > a').text();
-		var retailprice = $('#body > div.outerwrap > div > aside > section:nth-child(2) > div > dl > dd:nth-child(20)').text().split(" / ");
-		var availability = $('#body > div.outerwrap > div > aside > section:nth-child(2) > div > dl > dd:nth-child(26)').text();
-
-		scrapeResult["name"] = setName;
-		scrapeResult["type"] = setType;
-		scrapeResult["themeGroup"] = themeGroup;
-		scrapeResult["theme"] = theme;
-		scrapeResult["subtheme"] = subtheme;
-		scrapeResult["year"] = releaseYear;
-		scrapeResult["partCount"] = partCount;
-		scrapeResult["minifigCount"] = minifigCount;
-		if (retailprice.length === 3) {
-			scrapeResult["USRP"] = retailprice[1].replace("US$","");
-			scrapeResult["UKRP"] =  retailprice[0].replace("£","");
-		} else {
-			scrapeResult["USRP"] = -1;
-			scrapeResult["UKRP"] =  -1;
+		var details = $('#body > div.outerwrap > div > aside > section:nth-child(2) > div > dl');
+		var detailList = details.text().trim().split("\n");
+		for (var i = 0; i < detailList.length; i = i + 2) {
+			var dt = detailList[i];
+			var dd = detailList[i+1];
+			if (dt === "RRP") {
+				console.log('price : '+dd);
+				var matches = brickSetPriceRegex.exec(dd);
+				console.log('array : ' + JSON.stringify(matches));
+				scrapeResult["USRP"] = (matches && matches.length === 2)?matches[1]:-1;
+			} else {
+				scrapeResult[dt] = dd;
+			}
 		}
-		scrapeResult["availability"] = availability;
 		callback(null,scrapeResult);
 	});
 }
 
 function scrapeBrickPickerPage(url, callback) {
 	request(url, function (err, response, body) {
-		if (err) callback(err,null);
+		if (err) callbacZk(err,null);
 	    var $ = cheerio.load(body);
 	    var currentUSRP = $('#contentwrapper > div.widgetbox.padding0.nomargin > div > table > tbody > tr:nth-child(1) > td:nth-child(2)').text().trim().replace("$ ","");
-		var currentUKRP = $('#contentwrapper > div.widgetbox.padding0.nomargin > div > table > tbody > tr:nth-child(2) > td:nth-child(2)').text().trim().replace("£ ","");
 		var usPriceMatches = priceRegex.exec(currentUSRP);
-		var ukPriceMatches = priceRegex.exec(currentUKRP);
-		var usPrice = (usPriceMatches)?usPriceMatches[1]:-1;
-		var ukPrice = (ukPriceMatches)?ukPriceMatches[1]:-1;
+		var usPrice = (usPriceMatches)?usPriceMatches[0]:-1;
+
 		var size = $('#contentwrapper > div:nth-child(1) > div:nth-child(2) > div > div > ul > li.ruler > div').text().trim().replace("\r\n\t","");
 		var metricMatches = metricRegex.exec(size);
 		var weightMatches = weightRegex.exec(size);
@@ -170,7 +157,7 @@ function scrapeBrickPickerPage(url, callback) {
 		if (weightMatches && weightMatches.length === 3) {
 			weight = weightMatches[2];
 		}
-		callback(null,{"currentUSRP" : usPrice, "currentUKRP" : ukPrice, "length" : length, "width" : width, "height" : height, "weight" : weight});
+		callback(null,{"currentUSRP" : usPrice,"length" : length, "width" : width, "height" : height, "weight" : weight});
 	});
 }
 
@@ -184,7 +171,7 @@ rd.on('line', function(line) {
 		var legoSetBrickpickerUrl = record[4];
 		queue.push({"setId" : legoSetId,"rebrickableUrl" : legoSetRebrickableUrl,"bricksetUrl" : legoSetBricksetUrl, "brickpickerUrl" : legoSetBrickpickerUrl});
 	} else {
-		writeToCSV('setid,name,type,themeGroup,theme,subtheme,year,partCount,minifigCount,USRP,UKRP,availability,currentUSRP,currentUKRP,length,width,height,weight,uniqueParts');
+	writeToCSV('setid,name,type,themeGroup,theme,subtheme,year,partCount,minifigCount,uniqueParts,age_range,availability,length,width,height,weight,USRP,currentUSRP');	
 	}
 	lineNo++;
 });
